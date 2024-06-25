@@ -57,6 +57,3 @@ npm run dev
 
 ### Running the Project
 After following the above steps, your local blockchain and front-end application should be up and running. You can now interact with the deployed smart contracts through the front-end interface.
-```
-
-This single code block contains all the instructions for setting up the development environment, configuring MetaMask, and running the project, as requested.
