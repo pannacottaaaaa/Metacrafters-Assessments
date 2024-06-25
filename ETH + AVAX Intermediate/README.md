@@ -12,9 +12,6 @@ This project contains a Solidity smart contract that implements a basic deposit 
 - [Usage](#usage)
 - [Examples](#examples)
 - [Code](#code)
-- [Security](#security)
-- [Contributing](#contributing)
-- [License](#license)
 
 ---
 
