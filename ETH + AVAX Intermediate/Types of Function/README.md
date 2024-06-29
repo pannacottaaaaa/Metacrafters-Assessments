@@ -55,7 +55,7 @@ For common problems or issues, please refer to the Solidity documentation or Eth
 
 ### Authors
 
-- [pannacottaaaaa]([https://github.com/your-username](https://github.com/pannacottaaaaa))
+- [pannacottaaaaa](https://github.com/pannacottaaaaa)
 
 ### License
 
