@@ -1,8 +1,8 @@
-# Simple Deposit and Withdrawal Smart Contract
+# Simple Voting System Smart Contract
 
 ## Description
 
-This project contains a Solidity smart contract that implements a basic deposit and withdrawal system. It allows users to deposit funds into the contract and enables the owner to withdraw funds. The contract includes safeguards using `require()`, `assert()`, and `revert()` statements to ensure secure and correct operation.
+This project contains a Solidity smart contract that implements a basic voting system. It allows the contract owner to create proposals and enables users to vote on these proposals. The contract includes safeguards using `require()` statements to ensure secure and correct operation. Events are used to log significant actions such as proposal creation and voting.
 
 ---
 
@@ -19,22 +19,24 @@ This project contains a Solidity smart contract that implements a basic deposit 
 
 To interact with this smart contract, you need:
 
-- A development environment with Solidity compiler (e.g., Remix, Hardhat, Truffle).
+- A development environment with a Solidity compiler (e.g., Remix, Hardhat, Truffle).
 - Access to a blockchain network (e.g., Ethereum testnet or local blockchain).
 
 1. Clone the repository:
-    - git clone https://github.com/your-username/your-repository.git
-    - cd your-repository
-  
+    ```sh
+    git clone https://github.com/your-username/your-repository.git
+    cd your-repository
+    ```
+
 ## Usage
 
 ### Deploying the Contract
 
 Use your preferred Solidity development environment (e.g., Remix):
 
-1. **Compile the contract (`Contract.sol`):**
+1. **Compile the contract (`VotingSystem.sol`):**
    - Open Remix IDE.
-   - Select `Contract.sol` file.
+   - Select `VotingSystem.sol` file.
    - Compile the contract.
 
 2. **Deploy the contract to your chosen blockchain network.**
@@ -43,8 +45,9 @@ Use your preferred Solidity development environment (e.g., Remix):
 
 Once deployed, you can interact with the contract:
 
-- **Deposit funds:** Use the `deposit` function to add funds to the contract.
-- **Withdraw funds:** Use the `withdraw` function (accessible only by the owner) to retrieve funds.
+- **Create Proposal:** Use the `createProposal` function to create a new proposal (accessible only by the owner).
+- **Vote:** Use the `vote` function to cast a vote on a proposal.
+- **Get Proposal:** Use the `getProposal` function to retrieve details of a specific proposal.
 
 ---
 
@@ -52,21 +55,26 @@ Once deployed, you can interact with the contract:
 
 ### Deploying the Contract (using Remix IDE)
 
-1. **Compile and Deploy `Contract.sol`:**
+1. **Compile and Deploy `VotingSystem.sol`:**
    - Open Remix IDE.
-   - Select `Contract.sol` file.
+   - Select `VotingSystem.sol` file.
    - Compile and deploy.
 
 ### Interacting with the Contract (using Remix IDE)
 
-- **Deposit Funds:**
-  - **Amount:** 100 Wei
-  - Execute `deposit(100)` with 100 Wei attached.
+- **Create Proposal:**
+  - **Description:** "New Proposal"
+  - Execute `createProposal("New Proposal")` as the owner.
 
-- **Withdraw Funds:**
-  - **Amount:** 50 Wei
-  - Execute `withdraw(50)` as the owner.
+- **Vote:**
+  - **Proposal ID:** 1
+  - Execute `vote(1)` to vote on proposal ID 1.
 
+- **Get Proposal:**
+  - **Proposal ID:** 1
+  - Execute `getProposal(1)` to retrieve the details of proposal ID 1.
+
+---
 
 ## Code
 
@@ -74,49 +82,52 @@ Once deployed, you can interact with the contract:
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract Contract {
+contract VotingSystem {
     address public owner;
-    uint256 public balance;
+    uint256 public proposalCount;
+
+    struct Proposal {
+        uint256 id;
+        string description;
+        uint256 voteCount;
+        bool exists;
+    }
+
+    mapping(uint256 => Proposal) public proposals;
+    mapping(address => mapping(uint256 => bool)) public votes; // Tracks if an address has voted on a proposal
+
+    event ProposalCreated(uint256 id, string description);
+    event Voted(uint256 proposalId, address voter);
 
     constructor() {
         owner = msg.sender; // Set the contract deployer as the owner
+        proposalCount = 0;
     }
 
     modifier onlyOwner() {
-        // Using require to ensure only the owner can execute certain functions
         require(msg.sender == owner, "Caller is not the owner");
         _;
     }
 
-    function deposit(uint256 amount) public payable {
-        // Using require to check that the amount sent is correct
-        require(msg.value == amount, "Incorrect amount sent");
+    function createProposal(string memory description) public onlyOwner {
+        proposalCount++;
+        proposals[proposalCount] = Proposal(proposalCount, description, 0, true);
 
-        // Update balance
-        balance += amount;
-
-        // Using assert to verify the balance update
-        assert(balance >= amount);
+        emit ProposalCreated(proposalCount, description);
     }
 
-    function withdraw(uint256 amount) public onlyOwner {
-        // Using require to check that the contract has enough balance
-        require(balance >= amount, "Insufficient balance");
+    function vote(uint256 proposalId) public {
+        require(proposals[proposalId].exists, "Proposal does not exist");
+        require(!votes[msg.sender][proposalId], "You have already voted on this proposal");
 
-        // Update balance before transferring to prevent reentrancy attacks
-        balance -= amount;
+        proposals[proposalId].voteCount++;
+        votes[msg.sender][proposalId] = true;
 
-        // Transfer the amount to the owner
-        payable(owner).transfer(amount);
+        emit Voted(proposalId, msg.sender);
     }
 
-    function resetBalance() view public onlyOwner {
-        // Using revert to undo state changes and provide a custom error message
-        revert("Resetting balance is not allowed");
-    }
-
-    function dangerousFunction() public pure {
-        // This function always reverts with a custom error message
-        revert("This function is dangerous and always reverts");
+    function getProposal(uint256 proposalId) public view returns (string memory description, uint256 voteCount) {
+        require(proposals[proposalId].exists, "Proposal does not exist");
+        return (proposals[proposalId].description, proposals[proposalId].voteCount);
     }
 }
