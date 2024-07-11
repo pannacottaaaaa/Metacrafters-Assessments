@@ -1,8 +1,8 @@
-# Simple Voting System Smart Contract
+# Decentralized Crowdfunding Platform
 
 ## Description
 
-This project contains a Solidity smart contract that implements a basic voting system. It allows the contract owner to create proposals and enables users to vote on these proposals. The contract includes safeguards using `require()` statements to ensure secure and correct operation. Events are used to log significant actions such as proposal creation and voting.
+This project contains a Solidity smart contract that implements a decentralized crowdfunding platform. It allows users to create crowdfunding campaigns, pledge funds to these campaigns, and withdraw funds based on the success of the campaign. The contract includes safeguards using `require()` statements to ensure secure and correct operation. Events are used to log significant actions such as campaign creation, pledging, and withdrawals.
 
 ---
 
@@ -34,9 +34,9 @@ To interact with this smart contract, you need:
 
 Use your preferred Solidity development environment (e.g., Remix):
 
-1. **Compile the contract (`VotingSystem.sol`):**
+1. **Compile the contract (`Crowdfunding.sol`):**
    - Open Remix IDE.
-   - Select `VotingSystem.sol` file.
+   - Select `Crowdfunding.sol` file.
    - Compile the contract.
 
 2. **Deploy the contract to your chosen blockchain network.**
@@ -45,9 +45,10 @@ Use your preferred Solidity development environment (e.g., Remix):
 
 Once deployed, you can interact with the contract:
 
-- **Create Proposal:** Use the `createProposal` function to create a new proposal (accessible only by the owner).
-- **Vote:** Use the `vote` function to cast a vote on a proposal.
-- **Get Proposal:** Use the `getProposal` function to retrieve details of a specific proposal.
+- **Create Campaign:** Use the `createCampaign` function to create a new crowdfunding campaign.
+- **Pledge:** Use the `pledge` function to support a campaign.
+- **Withdraw:** Use the `withdraw` function to either claim the funds for a successful campaign or get back the pledged funds if the campaign fails.
+- **Get Campaign:** Use the `getCampaign` function to retrieve details of a specific campaign.
 
 ---
 
@@ -55,24 +56,32 @@ Once deployed, you can interact with the contract:
 
 ### Deploying the Contract (using Remix IDE)
 
-1. **Compile and Deploy `VotingSystem.sol`:**
+1. **Compile and Deploy `Crowdfunding.sol`:**
    - Open Remix IDE.
-   - Select `VotingSystem.sol` file.
+   - Select `Crowdfunding.sol` file.
    - Compile and deploy.
 
 ### Interacting with the Contract (using Remix IDE)
 
-- **Create Proposal:**
-  - **Description:** "New Proposal"
-  - Execute `createProposal("New Proposal")` as the owner.
+- **Create Campaign:**
+  - **Title:** "Innovative Project"
+  - **Description:** "A project to innovate the world."
+  - **Goal:** 100 ETH
+  - **Duration:** 30 days
+  - Execute `createCampaign("Innovative Project", "A project to innovate the world.", 100 ether, 30 days)`.
 
-- **Vote:**
-  - **Proposal ID:** 1
-  - Execute `vote(1)` to vote on proposal ID 1.
+- **Pledge:**
+  - **Campaign ID:** 1
+  - **Amount:** 5 ETH
+  - Execute `pledge(1)` with a value of 5 ETH.
 
-- **Get Proposal:**
-  - **Proposal ID:** 1
-  - Execute `getProposal(1)` to retrieve the details of proposal ID 1.
+- **Withdraw:**
+  - **Campaign ID:** 1
+  - Execute `withdraw(1)`.
+
+- **Get Campaign:**
+  - **Campaign ID:** 1
+  - Execute `getCampaign(1)` to retrieve the details of campaign ID 1.
 
 ---
 
@@ -82,26 +91,33 @@ Once deployed, you can interact with the contract:
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract VotingSystem {
+contract Crowdfunding {
     address public owner;
-    uint256 public proposalCount;
+    uint256 public campaignCount;
 
-    struct Proposal {
+    struct Campaign {
         uint256 id;
+        address payable creator;
+        string title;
         string description;
-        uint256 voteCount;
+        uint256 goal;
+        uint256 pledged;
+        uint256 deadline;
         bool exists;
+        bool completed;
     }
 
-    mapping(uint256 => Proposal) public proposals;
-    mapping(address => mapping(uint256 => bool)) public votes; // Tracks if an address has voted on a proposal
+    mapping(uint256 => Campaign) public campaigns;
+    mapping(address => mapping(uint256 => uint256)) public pledges; // Tracks pledges of each address for each campaign
 
-    event ProposalCreated(uint256 id, string description);
-    event Voted(uint256 proposalId, address voter);
+    event CampaignCreated(uint256 id, string title, uint256 goal, uint256 deadline);
+    event Pledged(uint256 campaignId, address backer, uint256 amount);
+    event Withdrawn(uint256 campaignId, address backer, uint256 amount);
+    event CampaignCompleted(uint256 campaignId, address creator, uint256 amount);
 
     constructor() {
         owner = msg.sender; // Set the contract deployer as the owner
-        proposalCount = 0;
+        campaignCount = 0;
     }
 
     modifier onlyOwner() {
@@ -109,25 +125,89 @@ contract VotingSystem {
         _;
     }
 
-    function createProposal(string memory description) public onlyOwner {
-        proposalCount++;
-        proposals[proposalCount] = Proposal(proposalCount, description, 0, true);
-
-        emit ProposalCreated(proposalCount, description);
+    modifier campaignExists(uint256 campaignId) {
+        require(campaigns[campaignId].exists, "Campaign does not exist");
+        _;
     }
 
-    function vote(uint256 proposalId) public {
-        require(proposals[proposalId].exists, "Proposal does not exist");
-        require(!votes[msg.sender][proposalId], "You have already voted on this proposal");
+    function createCampaign(
+        string memory title,
+        string memory description,
+        uint256 goal,
+        uint256 duration
+    ) public {
+        require(goal > 0, "Goal should be greater than zero");
+        require(duration > 0, "Duration should be greater than zero");
 
-        proposals[proposalId].voteCount++;
-        votes[msg.sender][proposalId] = true;
+        campaignCount++;
+        uint256 deadline = block.timestamp + duration;
 
-        emit Voted(proposalId, msg.sender);
+        campaigns[campaignCount] = Campaign(
+            campaignCount,
+            payable(msg.sender),
+            title,
+            description,
+            goal,
+            0,
+            deadline,
+            true,
+            false
+        );
+
+        emit CampaignCreated(campaignCount, title, goal, deadline);
     }
 
-    function getProposal(uint256 proposalId) public view returns (string memory description, uint256 voteCount) {
-        require(proposals[proposalId].exists, "Proposal does not exist");
-        return (proposals[proposalId].description, proposals[proposalId].voteCount);
+    function pledge(uint256 campaignId) public payable campaignExists(campaignId) {
+        Campaign storage campaign = campaigns[campaignId];
+        require(block.timestamp < campaign.deadline, "Campaign has ended");
+        require(!campaign.completed, "Campaign is already completed");
+
+        campaign.pledged += msg.value;
+        pledges[msg.sender][campaignId] += msg.value;
+
+        emit Pledged(campaignId, msg.sender, msg.value);
+    }
+
+    function withdraw(uint256 campaignId) public campaignExists(campaignId) {
+        Campaign storage campaign = campaigns[campaignId];
+        require(block.timestamp >= campaign.deadline, "Campaign is still ongoing");
+        require(!campaign.completed, "Campaign is already completed");
+
+        if (campaign.pledged >= campaign.goal) {
+            campaign.completed = true;
+            campaign.creator.transfer(campaign.pledged);
+
+            emit CampaignCompleted(campaignId, campaign.creator, campaign.pledged);
+        } else {
+            uint256 amount = pledges[msg.sender][campaignId];
+            require(amount > 0, "No funds to withdraw");
+
+            pledges[msg.sender][campaignId] = 0;
+            payable(msg.sender).transfer(amount);
+
+            emit Withdrawn(campaignId, msg.sender, amount);
+        }
+    }
+
+    function getCampaign(uint256 campaignId) public view returns (
+        string memory title,
+        string memory description,
+        uint256 goal,
+        uint256 pledged,
+        uint256 deadline,
+        bool completed
+    ) {
+        require(campaigns[campaignId].exists, "Campaign does not exist");
+
+        Campaign storage campaign = campaigns[campaignId];
+        return (
+            campaign.title,
+            campaign.description,
+            campaign.goal,
+            campaign.pledged,
+            campaign.deadline,
+            campaign.completed
+        );
     }
 }
+```
