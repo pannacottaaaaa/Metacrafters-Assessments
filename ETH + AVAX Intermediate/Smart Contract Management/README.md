@@ -99,4 +99,109 @@ After following the above steps, your local blockchain and front-end application
 - **GamePlayed**: Emitted when a game is played.
 - **TokensClaimed**: Emitted when tokens are claimed.
 
+## Frontend Implementation
+
+### HTML File
+
+Create an `index.html` file with the following content:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Game</title>
+</head>
+<body>
+    <h1>Simple Game</h1>
+    <button id="connectButton">Connect to MetaMask</button>
+    <div id="gameSection" style="display: none;">
+        <h2>Play Game</h2>
+        <input type="number" id="guessInput" placeholder="Enter your guess (1-10)">
+        <button id="playButton">Play Game</button>
+        <h2>Claim Tokens</h2>
+        <button id="claimButton">Claim Tokens</button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+```
+
+### JavaScript File
+
+Create an `app.js` file with the following content. Make sure to replace the placeholders with your actual contract address and ABI:
+
+```javascript
+let web3;
+let contract;
+const contractAddress = 'YOUR_CONTRACT_ADDRESS'; // Replace with your deployed contract address
+const contractABI = [ /* ABI array here */ ]; // Replace with your contract's ABI
+
+window.addEventListener('load', async () => {
+    if (typeof window.ethereum !== 'undefined') {
+        web3 = new Web3(window.ethereum);
+    } else {
+        alert('MetaMask is not installed. Please install it to use this app.');
+    }
+});
+
+document.getElementById('connectButton').addEventListener('click', async () => {
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+    document.getElementById('gameSection').style.display = 'block';
+    contract = new web3.eth.Contract(contractABI, contractAddress);
+});
+
+document.getElementById('playButton').addEventListener('click', async () => {
+    const accounts = await web3.eth.getAccounts();
+    const guess = document.getElementById('guessInput').value;
+    const gameCost = await contract.methods.gameCost().call();
+
+    await contract.methods.playGame(guess).send({ from: accounts[0], value: gameCost });
+});
+
+document.getElementById('claimButton').addEventListener('click', async () => {
+    const accounts = await web3.eth.getAccounts();
+    await contract.methods.claimTokens().send({ from: accounts[0] });
+});
+```
+
+### Configuration for `lite-server`
+
+Create a `bs-config.json` file in the project directory:
+
+```json
+{
+  "server": {
+    "baseDir": ["./"],
+    "routes": {
+      "/node_modules": "node_modules"
+    }
+  }
+}
+```
+
+### Update `package.json` Scripts
+
+Update the `scripts` section of your `package.json` to include a start script for `lite-server`:
+
+```json
+"scripts": {
+  "start": "lite-server"
+}
+```
+
+### Start the Frontend
+
+Now you can start the frontend server:
+
+```bash
+npm start
+```
+
+### Access the Application
+
+Open your browser and navigate to `http://localhost:3000`. You should see the SimpleGame interface and be able to connect to MetaMask and interact with your smart contract.
+
 Follow the instructions carefully to ensure everything is set up correctly. Enjoy playing the game and claiming your rewards!
