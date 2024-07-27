@@ -1,0 +1,84 @@
+.container {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background-color: #f4f4f9;
+  }
+  
+  .header {
+    background-color: #0070f3;
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .connectButton {
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .connectButton:hover {
+    background-color: #005bb5;
+  }
+  
+  .dashboard {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    margin: 20px auto;
+  }
+  
+  .accountInfo, .balanceInfo, .contributionInfo, .returnsInfo {
+    font-size: 18px;
+    margin: 10px 0;
+  }
+  
+  .transactionSection {
+    margin: 20px 0;
+  }
+  
+  .inputField {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    width: 200px;
+    margin-right: 10px;
+  }
+  
+  .transactionButton {
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .transactionButton:hover {
+    background-color: #005bb5;
+  }
+  
+  .claimButton {
+    background-color: #ff4081;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 20px;
+  }
+  
+  .claimButton:hover {
+    background-color: #c60055;
+  }
+  
