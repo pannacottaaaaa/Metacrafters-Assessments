@@ -1,6 +1,6 @@
-# SimpleGame Smart Contract Project
+# Decentralized Savings and Investment Club Project
 
-This guide will help you set up and run the SimpleGame project locally.
+This guide will help you set up and run the Decentralized Savings and Investment Club project locally.
 
 ## Prerequisites
 
@@ -74,134 +74,298 @@ Import this account into MetaMask.
 
 After following the above steps, your local blockchain and front-end application should be up and running. You can now interact with the deployed smart contracts through the front-end interface.
 
-## Interacting with the SimpleGame Smart Contract
+## Interacting with the DSIC Smart Contract
 
-1. **Playing the Game**:
-    - Enter a guess number between 1 and 10.
-    - Send the game cost (Ether) to play.
-    - If you guess correctly, you win double the amount you bet in tokens.
+1. **Deposit Funds**:
+    - Enter the amount you want to deposit and click "Deposit."
+    - Your contribution will be recorded, and the balance will be updated.
 
-2. **Claiming Tokens**:
-    - If you have won tokens, you can claim them.
-    - The claimed tokens will be transferred to your MetaMask account.
+2. **Withdraw Funds**:
+    - Enter the amount you want to withdraw and click "Withdraw."
+    - The funds will be transferred to your MetaMask account, and your contribution will be updated.
 
-3. **Adding Tokens (Owner only)**:
-    - The owner can add more tokens to the contract for rewards.
+3. **Claim Returns**:
+    - Click "Claim Returns" to receive any available returns based on your contributions.
 
 ## Smart Contract Details
 
-- **Owner**: The address that deployed the contract and can add tokens.
-- **Total Tokens**: The total number of tokens available in the contract for rewards.
-- **Game Cost**: The cost in Ether to play the game.
+### DSIC.sol
 
-## Events
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
 
-- **GamePlayed**: Emitted when a game is played.
-- **TokensClaimed**: Emitted when tokens are claimed.
+contract DSIC {
+    address payable public owner;
+    uint256 public balance;
+    mapping(address => uint256) public contributions;
+    mapping(address => uint256) public userReturns;
+
+    address[] private users; // To keep track of users who have made contributions
+
+    event Deposit(address indexed user, uint256 amount);
+    event Withdraw(address indexed user, uint256 amount);
+
+    constructor(uint initBalance) payable {
+        owner = payable(msg.sender);
+        balance = initBalance;
+    }
+
+    function getBalance() public view returns(uint256){
+        return balance;
+    }
+
+    function getUserContribution(address user) public view returns(uint256) {
+        return contributions[user];
+    }
+
+    function getUserReturns(address user) public view returns(uint256) {
+        return userReturns[user];
+    }
+
+    function deposit() public payable {
+        uint _previousBalance = balance;
+
+        // Perform transaction
+        balance += msg.value;
+        if (contributions[msg.sender] == 0) {
+            users.push(msg.sender); // Add new user to the list
+        }
+        contributions[msg.sender] += msg.value;
+
+        // Assert transaction completed successfully
+        assert(balance == _previousBalance + msg.value);
+
+        // Emit the event
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Custom error
+    error InsufficientBalance(uint256 balance, uint256 withdrawAmount);
+
+    function withdraw(uint256 _withdrawAmount) public {
+        require(contributions[msg.sender] >= _withdrawAmount, "Insufficient contribution");
+
+        uint _previousBalance = balance;
+        if (balance < _withdrawAmount) {
+            revert InsufficientBalance({
+                balance: balance,
+                withdrawAmount: _withdrawAmount
+            });
+        }
+
+        // Withdraw the given amount
+        balance -= _withdrawAmount;
+        contributions[msg.sender] -= _withdrawAmount;
+
+        payable(msg.sender).transfer(_withdrawAmount);
+
+        // Assert the balance is correct
+        assert(balance == (_previousBalance - _withdrawAmount));
+
+        // Emit the event
+        emit Withdraw(msg.sender, _withdrawAmount);
+    }
+
+    function distributeReturns(uint256 totalReturns) public {
+        require(msg.sender == owner, "Only the owner can distribute returns");
+
+        for (uint i = 0; i < users.length; i++) {
+            address user = users[i];
+            userReturns[user] += (contributions[user] * totalReturns) / balance;
+        }
+    }
+
+    function claimReturns() public {
+        uint256 userReturn = userReturns[msg.sender];
+        require(userReturn > 0, "No returns available");
+
+        userReturns[msg.sender] = 0;
+        payable(msg.sender).transfer(userReturn);
+    }
+}
+```
 
 ## Frontend Implementation
 
-### HTML File
-
-Create an `index.html` file with the following content:
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Game</title>
-</head>
-<body>
-    <h1>Simple Game</h1>
-    <button id="connectButton">Connect to MetaMask</button>
-    <div id="gameSection" style="display: none;">
-        <h2>Play Game</h2>
-        <input type="number" id="guessInput" placeholder="Enter your guess (1-10)">
-        <button id="playButton">Play Game</button>
-        <h2>Claim Tokens</h2>
-        <button id="claimButton">Claim Tokens</button>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
-    <script src="app.js"></script>
-</body>
-</html>
-```
-
-### JavaScript File
-
-Create an `app.js` file with the following content. Make sure to replace the placeholders with your actual contract address and ABI:
+### index.js
 
 ```javascript
-let web3;
-let contract;
-const contractAddress = 'YOUR_CONTRACT_ADDRESS'; // Replace with your deployed contract address
-const contractABI = [ /* ABI array here */ ]; // Replace with your contract's ABI
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import dsic_abi from "../artifacts/contracts/DSIC.sol/DSIC.json";
+import styles from './HomePage.module.css'; // Import the CSS module
 
-window.addEventListener('load', async () => {
-    if (typeof window.ethereum !== 'undefined') {
-        web3 = new Web3(window.ethereum);
+export default function HomePage() {
+  const [ethWallet, setEthWallet] = useState(undefined);
+  const [account, setAccount] = useState(undefined);
+  const [dsic, setDSIC] = useState(undefined);
+  const [balance, setBalance] = useState(undefined);
+  const [contribution, setContribution] = useState(undefined);
+  const [returns, setReturns] = useState(undefined);
+
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [withdrawAmount, setWithdrawAmount] = useState(0);
+
+  const contractAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; // Replace with actual deployed contract address
+  const dsicABI = dsic_abi.abi;
+
+  useEffect(() => {
+    if (window.ethereum) {
+      setEthWallet(window.ethereum);
+      getWallet();
     } else {
-        alert('MetaMask is not installed. Please install it to use this app.');
+      console.log("MetaMask is not installed. Please install MetaMask to use this application.");
     }
-});
+  }, []);
 
-document.getElementById('connectButton').addEventListener('click', async () => {
-    await window.ethereum.request({ method: 'eth_requestAccounts' });
-    document.getElementById('gameSection').style.display = 'block';
-    contract = new web3.eth.Contract(contractABI, contractAddress);
-});
-
-document.getElementById('playButton').addEventListener('click', async () => {
-    const accounts = await web3.eth.getAccounts();
-    const guess = document.getElementById('guessInput').value;
-    const gameCost = await contract.methods.gameCost().call();
-
-    await contract.methods.playGame(guess).send({ from: accounts[0], value: gameCost });
-});
-
-document.getElementById('claimButton').addEventListener('click', async () => {
-    const accounts = await web3.eth.getAccounts();
-    await contract.methods.claimTokens().send({ from: accounts[0] });
-});
-```
-
-### Configuration for `lite-server`
-
-Create a `bs-config.json` file in the project directory:
-
-```json
-{
-  "server": {
-    "baseDir": ["./"],
-    "routes": {
-      "/node_modules": "node_modules"
+  const getWallet = async () => {
+    try {
+      const accounts = await ethWallet.request({ method: "eth_requestAccounts" });
+      handleAccount(accounts);
+    } catch (error) {
+      console.error("Error connecting to MetaMask:", error);
     }
-  }
+  };
+
+  const handleAccount = (accounts) => {
+    if (accounts.length > 0) {
+      console.log("Account connected: ", accounts[0]);
+      setAccount(accounts[0]);
+      getDSICContract();
+    } else {
+      console.log("No accounts found");
+    }
+  };
+
+  const getDSICContract = () => {
+    if (ethers.utils.isAddress(contractAddress)) {
+      const provider = new ethers.providers.Web3Provider(ethWallet);
+      const signer = provider.getSigner();
+      const dsicContract = new ethers.Contract(contractAddress, dsicABI, signer);
+      setDSIC(dsicContract);
+    } else {
+      console.error("Invalid contract address");
+    }
+  };
+
+  const getBalance = async () => {
+    if (dsic) {
+      const balance = await dsic.getBalance();
+      setBalance(balance);
+    }
+  };
+
+  const getContribution = async () => {
+    if (dsic && account) {
+      const contribution = await dsic.getUserContribution(account);
+      setContribution(contribution);
+    }
+  };
+
+  const getReturns = async () => {
+    if (dsic && account) {
+      const returns = await dsic.getUserReturns(account);
+      setReturns(returns);
+    }
+  };
+
+  const deposit = async () => {
+    if (dsic) {
+      let tx = await dsic.deposit({ value: ethers.utils.parseEther(depositAmount.toString()) });
+      await tx.wait();
+      getBalance();
+      getContribution();
+    }
+  };
+
+  const withdraw = async () => {
+    if (dsic) {
+      let amount = ethers.utils.parseEther(withdrawAmount.toString());
+      let tx = await dsic.withdraw(amount);
+      await tx.wait();
+      getBalance();
+      getContribution();
+    }
+  };
+
+  const claimReturns = async () => {
+    if (dsic) {
+      let tx = await dsic.claimReturns();
+      await tx.wait();
+      getReturns();
+    }
+  };
+
+  const initUser = () => {
+    if (!account) {
+      return (
+        <button className={styles.connectButton} onClick={getWallet}>
+          Connect MetaMask Wallet
+        </button>
+      );
+    }
+
+    if (balance === undefined) {
+      getBalance();
+      getContribution();
+      getReturns();
+    }
+
+    return (
+      <div className={styles.dashboard}>
+        <p className={styles.accountInfo}>Your Account: <strong>{account}</strong></p>
+        <p className={styles.balanceInfo}>Total Balance: <strong>{balance && ethers.utils.formatEther(balance)} ETH</strong></p>
+        <p className={styles.contributionInfo}>Your Contribution: <strong>{contribution && ethers.utils.formatEther(contribution)} ETH</strong></p>
+        <p className={styles.returnsInfo}>Your Returns: <strong>{returns && ethers.utils.formatEther(returns)} ETH</strong></p>
+
+        <div
+
+ className={styles.depositWithdrawContainer}>
+          <input 
+            type="number" 
+            value={depositAmount} 
+            onChange={(e) => setDepositAmount(e.target.value)} 
+            placeholder="Deposit Amount"
+          />
+          <button className={styles.actionButton} onClick={deposit}>Deposit</button>
+
+          <input 
+            type="number" 
+            value={withdrawAmount} 
+            onChange={(e) => setWithdrawAmount(e.target.value)} 
+            placeholder="Withdraw Amount"
+          />
+          <button className={styles.actionButton} onClick={withdraw}>Withdraw</button>
+          
+          <button className={styles.actionButton} onClick={claimReturns}>Claim Returns</button>
+        </div>
+      </div>
+    );
+  };
+
+  return <>{initUser()}</>;
 }
 ```
 
-### Update `package.json` Scripts
+### deploy.js
 
-Update the `scripts` section of your `package.json` to include a start script for `lite-server`:
+```javascript
+async function main() {
+  const [deployer] = await ethers.getSigners();
 
-```json
-"scripts": {
-  "start": "lite-server"
+  console.log("Deploying contracts with the account:", deployer.address);
+
+  const DSIC = await ethers.getContractFactory("DSIC");
+  const dsic = await DSIC.deploy(1000000);
+
+  console.log("DSIC contract deployed to:", dsic.address);
 }
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 ```
-
-### Start the Frontend
-
-Now you can start the frontend server:
-
-```bash
-npm start
-```
-
-### Access the Application
-
-Open your browser and navigate to `http://localhost:3000`. You should see the SimpleGame interface and be able to connect to MetaMask and interact with your smart contract.
-
-Follow the instructions carefully to ensure everything is set up correctly. Enjoy playing the game and claiming your rewards!
